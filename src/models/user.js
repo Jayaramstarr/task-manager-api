@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const validator = require("validator");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const Task = require('./task');
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -37,6 +38,7 @@ const userSchema = new mongoose.Schema({
       if (value < 0) throw new Error("Age should be a positive number");
     },
   },
+
   tokens: [
     {
       token: {
@@ -44,24 +46,30 @@ const userSchema = new mongoose.Schema({
         required: true,
       },
     },
-  ]
+  ],
+  avatar:{
+    type:Buffer
+  }
+},
+  {
+    timestamps: true //creates the feilds the feild "created at" and "updated at"
 });
 
-// this feild is not stored in the database but is present virtually for mongoose
-userSchema.virtual('tasks',{
-    ref:'Task',
-    localFeild:'_id',
-    foreignFeild:'owner'
-})
+
+/* this feild is not stored in the database 
+but is present virtually for mongoose to identifiy ehich user owns which task*/
+
+userSchema.virtual("tasks", {
+  ref: "Task",
+  localField: "_id",
+  foreignField: "owner",
+});
 
 //use standard function as it requires this binding which is not given by arrow functions
 //methods functions accesible only on instance of the model
 userSchema.methods.generateAuthToken = async function () {
   const user = this;
-  const token = jwt.sign(
-    { _id: user._id.toString() },
-    "secretValueCanBeAnything"
-  );
+  const token = jwt.sign( { _id: user._id.toString() },process.env.JWT_SECRET);
 
   user.tokens = user.tokens.concat({ token });
   await user.save();
@@ -75,6 +83,7 @@ userSchema.methods.toJSON = function () {
 
   delete userObject.password;
   delete userObject.tokens;
+  delete userObject.avatar;//deletes the pic cause there's no need to send the pic as it slows down the operation 
 
   return userObject;
 };
@@ -107,6 +116,17 @@ userSchema.pre("save", async function (next) {
   //the function keeps on executing forever unless next is callled
   next();
 });
+
+
+// delete all the user's tasks when the user is deleted
+userSchema.pre('remove', async function(next){
+  
+  const user = this;
+  await Task.deleteMany({owner:user._id});
+  next();
+});
+
+
 
 const User = mongoose.model("User", userSchema);
 

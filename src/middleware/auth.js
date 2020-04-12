@@ -9,7 +9,7 @@ const auth = async (req,res,next)=>{
 
         const token = req.header('Authorization').replace('Bearer ',''); //extracts the token from the header
 
-        const decoded = jwt.verify(token,'secretValueCanBeAnything'); //verifies the token
+        const decoded = jwt.verify(token,process.env.JWT_SECRET); //verifies the token
 
         /*finds the user (with the help of the id which is a part of the token)
         who has the authentication token stored in the array of tokens*/
